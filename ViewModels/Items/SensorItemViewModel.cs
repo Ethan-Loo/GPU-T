@@ -44,6 +44,11 @@ public partial class SensorItemViewModel : ViewModelBase
     private bool _isHovering = false;
     private string? _currentTextValue = null;
 
+    private double? _warnLimit;
+    private double? _critLimit;
+    private static readonly IBrush WarnBrush = new SolidColorBrush(Color.FromRgb(0xE0, 0x90, 0x2A));
+    private static readonly IBrush CritBrush = new SolidColorBrush(Color.FromRgb(0xE2, 0x3B, 0x3B));
+
     #endregion
 
     #region OBSERVABLE PROPERTIES
@@ -77,6 +82,11 @@ public partial class SensorItemViewModel : ViewModelBase
     /// Property to bind the graph color to, allowing dynamic changes based on sensor type or value thresholds.
     /// </summary>
     [ObservableProperty] private IBrush _graphColor;
+
+    /// <summary>
+    /// Foreground brush for the value cell; set when a warn/critical threshold is breached, null = default themed color.
+    /// </summary>
+    [ObservableProperty] private IBrush? _valueColor;
 
     /// <summary>
     /// Public access to the current raw numeric value (used by loggers and other services).
@@ -162,6 +172,22 @@ public partial class SensorItemViewModel : ViewModelBase
 
         UpdateDisplayString(rawValue, textValue);
         GeneratePolygon();
+        UpdateValueColor(rawValue);
+    }
+
+    /// <summary>Sets warn/critical thresholds (same unit as the sensor) used to color the value cell.</summary>
+    public void SetThresholds(double warn, double crit)
+    {
+        _warnLimit = warn;
+        _critLimit = crit;
+        UpdateValueColor(CurrentValue);
+    }
+
+    private void UpdateValueColor(double value)
+    {
+        if (_critLimit is { } c && value >= c) ValueColor = CritBrush;
+        else if (_warnLimit is { } w && value >= w) ValueColor = WarnBrush;
+        else ValueColor = null;
     }
 
     /// <summary>

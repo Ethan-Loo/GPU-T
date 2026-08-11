@@ -161,6 +161,8 @@ public partial class MainWindowViewModel
         list.Add(new SensorItemViewModel("CPU Temperature", "°C", 20, 70, false));
         list.Add(new SensorItemViewModel("System Memory Used", "MB", 0, 4096, false));
 
+        InitExtraSensors(list, gpuId);
+
         Sensors = list;
 
         // Safely read the UI selection, falling back to 1.0s on initial startup
@@ -233,6 +235,8 @@ public partial class MainWindowViewModel
         
         UpdateSensor("CPU Temperature", data.CpuTemperature);
         UpdateSensor("System Memory Used", data.SystemRamUsed);
+
+        UpdateExtraSensors();
 
         if (IsLogEnabled && !string.IsNullOrEmpty(_logFilePath) && Sensors != null)
         {

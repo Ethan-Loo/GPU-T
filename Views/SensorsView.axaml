@@ -44,6 +44,7 @@
                                                        Classes="ModeLabel"/>
                                             
                                             <TextBlock Text="{Binding DisplayValue}" 
+                                                       Foreground="{Binding ValueColor}"
                                                        Classes="SensorValue"/>
                                         </Grid>
                                     </Border>
