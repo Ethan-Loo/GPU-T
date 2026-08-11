@@ -46,8 +46,6 @@ public partial class SensorItemViewModel : ViewModelBase
 
     private double? _warnLimit;
     private double? _critLimit;
-    private static readonly IBrush WarnBrush = new SolidColorBrush(Color.FromRgb(0xE0, 0x90, 0x2A));
-    private static readonly IBrush CritBrush = new SolidColorBrush(Color.FromRgb(0xE2, 0x3B, 0x3B));
 
     #endregion
 
@@ -84,9 +82,10 @@ public partial class SensorItemViewModel : ViewModelBase
     [ObservableProperty] private IBrush _graphColor;
 
     /// <summary>
-    /// Foreground brush for the value cell; set when a warn/critical threshold is breached, null = default themed color.
+    /// Value-cell alert state: warn/critical drive style classes that recolor the reading (null threshold = no coloring).
     /// </summary>
-    [ObservableProperty] private IBrush? _valueColor;
+    [ObservableProperty] private bool _isWarn;
+    [ObservableProperty] private bool _isCrit;
 
     /// <summary>
     /// Public access to the current raw numeric value (used by loggers and other services).
@@ -185,9 +184,9 @@ public partial class SensorItemViewModel : ViewModelBase
 
     private void UpdateValueColor(double value)
     {
-        if (_critLimit is { } c && value >= c) ValueColor = CritBrush;
-        else if (_warnLimit is { } w && value >= w) ValueColor = WarnBrush;
-        else ValueColor = null;
+        bool crit = _critLimit is { } c && value >= c;
+        IsCrit = crit;
+        IsWarn = !crit && _warnLimit is { } w && value >= w;
     }
 
     /// <summary>

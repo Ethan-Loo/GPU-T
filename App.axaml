@@ -147,6 +147,13 @@
             <Setter Property="Margin" Value="0,0,4,0"/> <Setter Property="FontSize" Value="11"/>
         </Style>
 
+        <Style Selector="TextBlock.SensorValue.warn">
+            <Setter Property="Foreground" Value="#E0902A"/>
+        </Style>
+        <Style Selector="TextBlock.SensorValue.crit">
+            <Setter Property="Foreground" Value="#E23B3B"/>
+        </Style>
+
         <Style Selector="TextBlock.ModeLabel">
             <Setter Property="FontSize" Value="6"/>
             <Setter Property="Foreground" Value="#008000"/> 

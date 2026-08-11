@@ -11,9 +11,13 @@ namespace GPU_T.ViewModels;
 
 
 
-public class GpuListItem
+public partial class GpuListItem : ObservableObject
 {
-    public string Id { get; set; }
-    public string DisplayName { get; set; }
-    public override string ToString() => DisplayName; 
+    public string Id { get; set; } = "";
+    public string DisplayName { get; set; } = "";
+
+    /// <summary>Whether this GPU's sensors are shown on the Sensors tab (multi-select).</summary>
+    [ObservableProperty] private bool _isDisplayed;
+
+    public override string ToString() => DisplayName;
 }

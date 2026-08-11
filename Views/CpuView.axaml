@@ -1,0 +1,69 @@
+<!-- Dedicated CPU tab: per-core load/clock and CPU temperatures, kept off the main Sensors list. -->
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:GPU_T.ViewModels"
+             x:Class="GPU_T.Views.CpuView"
+             x:DataType="vm:MainWindowViewModel">
+
+    <ScrollViewer HorizontalScrollBarVisibility="Disabled"
+                  VerticalScrollBarVisibility="Auto">
+        <ItemsControl ItemsSource="{Binding CpuSensors}" Margin="6,10,6,0">
+            <ItemsControl.ItemTemplate>
+                <DataTemplate>
+                    <Grid Margin="0,0,0,7">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="148"/>
+                            <ColumnDefinition Width="5"/>
+                            <ColumnDefinition Width="70"/>
+                            <ColumnDefinition Width="5"/>
+                            <ColumnDefinition Width="133"/>
+                        </Grid.ColumnDefinitions>
+
+                        <Border Grid.Column="0" Classes="SensorFrame" Height="20">
+                            <Border Classes="SensorFrameInner">
+                                <TextBlock Text="{Binding Name}" Classes="SensorName"/>
+                            </Border>
+                        </Border>
+
+                        <Button Grid.Column="2"
+                                Command="{Binding ToggleModeCommand}"
+                                Padding="0" BorderThickness="0" Background="Transparent"
+                                CornerRadius="0" Height="20">
+                            <Border Classes="SensorFrame" Height="20" Width="70">
+                                <Border Classes="SensorFrameInner">
+                                    <Grid>
+                                        <TextBlock Text="{Binding ModeLabel}" Classes="ModeLabel"/>
+                                        <TextBlock Text="{Binding DisplayValue}"
+                                                   Classes="SensorValue"
+                                                   Classes.warn="{Binding IsWarn}"
+                                                   Classes.crit="{Binding IsCrit}"/>
+                                    </Grid>
+                                </Border>
+                            </Border>
+                        </Button>
+
+                        <Grid Grid.Column="4"
+                              Height="20" Width="133"
+                              Background="Transparent"
+                              PointerMoved="Graph_PointerMoved"
+                              PointerExited="Graph_PointerExited">
+                            <Border Background="{DynamicResource ApplicationPageBackgroundThemeBrush}" ClipToBounds="True" Margin="1">
+                                <Polygon Points="{Binding GraphPoints}"
+                                         Fill="{Binding GraphColor}"
+                                         Stroke="{Binding GraphColor}"
+                                         StrokeThickness="1"
+                                         IsHitTestVisible="False"
+                                         VerticalAlignment="Top"
+                                         HorizontalAlignment="Left"
+                                         RenderOptions.BitmapInterpolationMode="LowQuality"/>
+                            </Border>
+                            <Border Classes="SensorFrame" Background="Transparent" IsHitTestVisible="False">
+                                <Border Classes="SensorFrameInner" Background="Transparent"/>
+                            </Border>
+                        </Grid>
+                    </Grid>
+                </DataTemplate>
+            </ItemsControl.ItemTemplate>
+        </ItemsControl>
+    </ScrollViewer>
+</UserControl>

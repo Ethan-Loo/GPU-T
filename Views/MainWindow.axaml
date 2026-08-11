@@ -38,6 +38,11 @@
                 <views:SensorsView/>
             </TabItem>
             
+            <!-- CPU tab: per-core load/clock and CPU temperatures. -->
+            <TabItem Header="CPU">
+                <views:CpuView/>
+            </TabItem>
+            
             <!-- Advanced tab: hosts advanced configuration and diagnostics. -->
             <TabItem Header="Advanced">
                 <views:AdvancedView/>
@@ -88,13 +93,25 @@
                 <RowDefinition Height="8"/>    
             </Grid.RowDefinitions>
 
-            <!-- GPU selector bound to AvailableGpus and SelectedGpu on the view model. -->
+            <!-- GPU selector bound to AvailableGpus and SelectedGpu; checkboxes pick which GPUs' sensors are shown. -->
             <ComboBox Grid.Row="0" Grid.Column="0" 
                       Width="270" 
                       ItemsSource="{Binding AvailableGpus}"
                       SelectedItem="{Binding SelectedGpu}"
                       HorizontalAlignment="Left"
-                      Margin="0,0,0,1"/> 
+                      Margin="0,0,0,1">
+                <ComboBox.ItemTemplate>
+                    <DataTemplate x:DataType="vm:GpuListItem">
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                            <CheckBox IsChecked="{Binding IsDisplayed, Mode=TwoWay}"
+                                      MinWidth="0" Padding="0" Margin="0"
+                                      VerticalAlignment="Center"
+                                      ToolTip.Tip="Show this GPU's sensors on the Sensors tab"/>
+                            <TextBlock Text="{Binding DisplayName}" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </DataTemplate>
+                </ComboBox.ItemTemplate>
+            </ComboBox>
             
             <!-- Close action bound to CloseAppCommand on the view model. -->
             <Button Grid.Row="0" Grid.Column="1" 

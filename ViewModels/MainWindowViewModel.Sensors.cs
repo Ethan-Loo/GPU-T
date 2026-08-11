@@ -72,12 +72,11 @@ public partial class MainWindowViewModel
     private void ResetSensors()
     {
         if (Sensors != null)
-        {
             foreach (var sensor in Sensors)
-            {
                 sensor.Reset();
-            }
-        }
+        if (CpuSensors != null)
+            foreach (var sensor in CpuSensors)
+                sensor.Reset();
     }
 
     /// <summary>
@@ -102,68 +101,27 @@ public partial class MainWindowViewModel
 
     private void InitSensors()
     {
-        // Select the GPU probe ID; if none selected use a sensible default ("card0").
-        string gpuId = _selectedGpu?.Id ?? "card0";
-        var probe = GpuProbeFactory.Create(gpuId);
-        var support = probe.GetSensorAvailability();
-
         var list = new ObservableCollection<SensorItemViewModel>();
+        _hiddenEntries.Clear();
 
-        list.Add(new SensorItemViewModel("GPU Clock", "MHz", 0, 100, false));
-        list.Add(new SensorItemViewModel("Memory Clock", "MHz", 0, 1000, false));
-        list.Add(new SensorItemViewModel("GPU Temperature", "°C", 20, 60, false));
+        var displayed = DisplayedGpuIds();
+        _multiGpu = displayed.Count > 1;
 
-        if (support.HasHotSpot)
-            list.Add(new SensorItemViewModel("GPU Temperature (Hot Spot)", "°C", 20, 80, false));
-
-        if (support.HasMemTemp)
-            list.Add(new SensorItemViewModel("Memory Temperature", "°C", 20, 60, false));
-
-        if (support.HasFan)
-            list.Add(new SensorItemViewModel("Fan Speed (%)", "%", 0, 100, true));
-
-        if(support.HasFanRpm)
-            list.Add(new SensorItemViewModel("Fan Speed (RPM)", "RPM", 0, 1000, false));
-
-        if (support.HasGpuLoad)
-            list.Add(new SensorItemViewModel("GPU Load", "%", 0, 100, true));
-
-        if(support.HasEncoderLoad)
-            list.Add(new SensorItemViewModel("Video Encoder Load", "%", 0, 100, true));
-
-        if(support.HasDecoderLoad)
-            list.Add(new SensorItemViewModel("Video Decoder Load", "%", 0, 100, true));
-
-        if (support.HasPcieTx)
-            list.Add(new SensorItemViewModel("PCIe Tx Throughput", "GB/s", 0, 4, false));
-
-        if (support.HasPcieRx)
-            list.Add(new SensorItemViewModel("PCIe Rx Throughput", "GB/s", 0, 4, false));
-
-        if (support.HasMemControllerLoad)
-            list.Add(new SensorItemViewModel("Memory Controller Load", "%", 0, 100, true));
-
-        if (support.HasMemUsed)
+        foreach (var id in displayed)
         {
-            list.Add(new SensorItemViewModel("Memory Used (Dedicated)", "MB", 0, 512, false));
-            list.Add(new SensorItemViewModel("Memory Used (Dynamic)", "MB", 0, 128, false));
+            var probe = GpuProbeFactory.Create(id);
+            var support = probe.GetSensorAvailability();
+            string prefix = _multiGpu ? GpuTag(id) + " " : "";
+            AddGpuRows(list, support, prefix);
+            InitHiddenThermalSensors(list, id, prefix, allowFallback: !_multiGpu);
         }
-
-        if (support.HasPower)
-            list.Add(new SensorItemViewModel("Board Power Draw", "W", 0, 100, false));
-
-        if(support.HasPerfCapReason)
-            list.Add(new SensorItemViewModel("PerfCap Reason", "", 0, 1, true, "#00aa00"));
-
-        if (support.HasVoltage)
-            list.Add(new SensorItemViewModel("GPU Voltage", "V", 0, 1.0, false));
 
         list.Add(new SensorItemViewModel("CPU Temperature", "°C", 20, 70, false));
         list.Add(new SensorItemViewModel("System Memory Used", "MB", 0, 4096, false));
 
-        InitExtraSensors(list, gpuId);
-
-        Sensors = list;
+        InitSystemSensors(list);
+        ApplyThermalThresholds(list);
+        PartitionSensors(list);
 
         // Safely read the UI selection, falling back to 1.0s on initial startup
         double intervalSeconds = SelectedRefreshRate?.Seconds ?? 1.0;
@@ -197,52 +155,33 @@ public partial class MainWindowViewModel
 
     private void SensorTimer_Tick(object? sender, EventArgs e)
     {
-        if (_selectedGpu == null) return;
-        
-        // Create a probe for the currently selected GPU and memory read type.
-        var probe = GpuProbeFactory.Create(_selectedGpu.Id, MemoryType);
-        var data = probe.LoadSensorData();
+        var displayed = DisplayedGpuIds();
+        string primaryId = _selectedGpu?.Id ?? (displayed.Count > 0 ? displayed[0] : "");
+        GPU_T.Models.GpuSensorData? primary = null;
 
-        UpdateSensor("GPU Clock", data.GpuClock);
-        UpdateSensor("Memory Clock", data.MemoryClock);
-        UpdateSensor("GPU Temperature", data.GpuTemp);
-        UpdateSensor("GPU Temperature (Hot Spot)", data.GpuHotSpot);
-        UpdateSensor("Memory Temperature", data.MemoryTemp);
-        
-        UpdateSensor("Fan Speed (%)", (double)data.FanPercent);
-        UpdateSensor("Fan Speed (RPM)", (double)data.FanRpm);
-        
-        UpdateSensor("GPU Load", (double)data.GpuLoad);
-        UpdateSensor("Memory Controller Load", (double)data.MemControllerLoad);
-        
-        UpdateSensor("Video Encoder Load", (double)data.EncoderLoad);
-        UpdateSensor("Video Decoder Load", (double)data.DecoderLoad);
-
-        UpdateSensor("PCIe Tx Throughput", data.PcieTx);
-        UpdateSensor("PCIe Rx Throughput", data.PcieRx);
-        
-        UpdateSensor("Memory Used (Dedicated)", data.MemoryUsed);
-        UpdateSensor("Memory Used (Dynamic)", data.MemoryUsedDynamic);
-        
-        UpdateSensor("Board Power Draw", data.BoardPower);
-
-        // PerfCap Reason is a decoded string value that also has an associated graph value (0.0 for None/Idle, 1.0 for any active limit); both are updated in the UI.
-        string perfCapStr = GPU_T.Services.Probes.LinuxNvidia.LinuxNvidiaPerfCapDecoder.Decode(data.PerfCapReason);
-        double perfCapVal = GPU_T.Services.Probes.LinuxNvidia.LinuxNvidiaPerfCapDecoder.GetGraphValue(perfCapStr);
-        UpdateSensor("PerfCap Reason", perfCapVal, perfCapStr);
-
-        UpdateSensor("GPU Voltage", data.GpuVoltage);
-        
-        UpdateSensor("CPU Temperature", data.CpuTemperature);
-        UpdateSensor("System Memory Used", data.SystemRamUsed);
+        foreach (var id in displayed)
+        {
+            var probe = GpuProbeFactory.Create(id, MemoryType);
+            var data = probe.LoadSensorData();
+            string prefix = _multiGpu ? GpuTag(id) + " " : "";
+            UpdateGpuRows(data, prefix);
+            if (id == primaryId) primary = data;
+        }
 
         UpdateExtraSensors();
+
+        if (primary != null)
+        {
+            UpdateSensor("CPU Temperature", primary.CpuTemperature);
+            UpdateSensor("System Memory Used", primary.SystemRamUsed);
+            RecalcDynamicSpecs(primary);
+        }
 
         if (IsLogEnabled && !string.IsNullOrEmpty(_logFilePath) && Sensors != null)
         {
             try
             {
-                string row = SensorLogService.BuildDataRow(Sensors);
+                string row = SensorLogService.BuildDataRow(Sensors.Concat(CpuSensors));
                 File.AppendAllText(_logFilePath, row + Environment.NewLine);
             }
             catch
@@ -250,74 +189,12 @@ public partial class MainWindowViewModel
                 // Ignore IO locking scenarios during append; logging should not disrupt runtime sensor updates.
             }
         }
-
-        // If we detect a change in overclocking offsets, we recalculate the dynamic specs which depend on them and update the main tab values accordingly.
-        // (NVIDIA block)
-        if(data.NVIDIA_CoreOcOffset != _lastNvidiaCoreOffset || data.NVIDIA_MemOcOffset != _lastNvidiaMemOffset)
-        {
-            _lastNvidiaCoreOffset = data.NVIDIA_CoreOcOffset;
-            _lastNvidiaMemOffset = data.NVIDIA_MemOcOffset;
-
-            //var memOcOffsetEffective = (int)(data.MemOcOffset * GPU_T.Services.Probes.CommonGpuHelpers.GetMemoryMultiplier(_rawMemoryType));
-
-            if (_currentVendorName == "NVIDIA")
-            {
-                var dynamicSpecs = GPU_T.Services.Probes.LinuxNvidia.LinuxNvidiaGpuProbe.CalculateDynamicSpecs(
-                    _rawDefGpuClock, _rawDefBoostClock, _rawDefMemClock,
-                    _rawRops, _rawTmus, _rawBusWidth, _rawMemoryType,
-                    data.NVIDIA_CoreOcOffset, data.NVIDIA_MemOcOffset);
-
-                // These update the Main Tab ObservableProperties
-                GpuClock = dynamicSpecs.GpuClock;
-                BoostClock = dynamicSpecs.BoostClock;
-                MemoryClock = dynamicSpecs.MemClock;
-                PixelFillrate = dynamicSpecs.PixelFill;
-                TextureFillrate = dynamicSpecs.TexFill;
-                Bandwidth = dynamicSpecs.Bandwidth;
-            }
-
-        }
-
-        // If we detect a change in AMD GPU clocks, we recalculate the dynamic specs which depend on them and update the main tab values accordingly.
-        // (AMD block)
-        if(data.AMD_BoostReadValue != _lastAmdBoostRead || data.AMD_CoreReadValue != _lastAmdCoreRead || data.AMD_MemReadValue != _lastAmdMemRead)
-        {
-            _lastAmdBoostRead = data.AMD_BoostReadValue;
-            _lastAmdCoreRead = data.AMD_CoreReadValue;
-            _lastAmdMemRead = data.AMD_MemReadValue;
-
-            if (_currentVendorName == "AMD")
-            {
-                var dynamicSpecs = GPU_T.Services.Probes.LinuxAmd.LinuxAmdGpuProbe.CalculateDynamicSpecs(
-                    data.AMD_CoreReadValue, data.AMD_MemReadValue, data.AMD_BoostReadValue,
-                    _rawDefGpuClock, _rawDefBoostClock, _rawDefMemClock,
-                    _rawRops, _rawTmus, _rawBusWidth, _rawMemoryType);
-
-                // These update the Main Tab ObservableProperties
-                GpuClock = dynamicSpecs.GpuClock;
-                BoostClock = dynamicSpecs.BoostClock;
-                MemoryClock = dynamicSpecs.MemClock;
-                PixelFillrate = dynamicSpecs.PixelFill;
-                TextureFillrate = dynamicSpecs.TexFill;
-                Bandwidth = dynamicSpecs.Bandwidth;
-            }
-        }
-
-
-
-        // PCIe link status can change dynamically; if we detect a change, we update the displayed value
-        if(data.BusInterface != _lastBusInterface)
-        {
-            _lastBusInterface = data.BusInterface;
-            BusInterface = _lastBusInterface;
-        }
-
-
     }
 
     private void UpdateSensor(string name, double value, string? textValue = null)
     {
-        var sensor = Sensors.FirstOrDefault(s => s.Name == name);
+        var sensor = Sensors?.FirstOrDefault(s => s.Name == name)
+                     ?? CpuSensors?.FirstOrDefault(s => s.Name == name);
         if (sensor != null) sensor.UpdateValue(value, textValue);
     }
 
@@ -326,7 +203,7 @@ public partial class MainWindowViewModel
         if (!IsLogEnabled || string.IsNullOrEmpty(_logFilePath) || Sensors == null) return;
         try
         {
-            string header = SensorLogService.BuildHeader(Sensors);
+            string header = SensorLogService.BuildHeader(Sensors.Concat(CpuSensors));
             File.AppendAllText(_logFilePath, header + Environment.NewLine);
         }
         catch (Exception ex)

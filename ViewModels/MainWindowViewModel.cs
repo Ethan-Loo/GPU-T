@@ -346,8 +346,13 @@ public partial class MainWindowViewModel : ViewModelBase
 
         if (AvailableGpus.Count > 0)
         {
+            AvailableGpus[0].IsDisplayed = true;   // default: show the primary GPU on the Sensors tab
             SelectedGpu = AvailableGpus[0];
         }
+
+        // React to display-checkbox toggles by rebuilding the sensor set.
+        foreach (var g in AvailableGpus)
+            g.PropertyChanged += OnGpuItemPropertyChanged;
 
         SelectedRefreshRate = RefreshRates.FirstOrDefault(x => x.Seconds == 1.0) ?? RefreshRates[3];
 
